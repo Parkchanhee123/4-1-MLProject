@@ -1,30 +1,24 @@
-import os
 import torch
-import soundfile as sf
 import numpy as np
+import soundfile as sf
 from models import MLP
-from data_io_train import get_train_list
 
-model = MLP()
-criterion = torch.nn.CrossEntropyLoss()
+model = MLP(input_dim=16000, output_dim=2)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+criterion = torch.nn.CrossEntropyLoss()
 
-train_list = get_train_list()
-label_dict = np.load("labels.npy", allow_pickle=True).item()  # {"file1.wav": 0, ...}
+train_list = ["test1.wav", "test2.wav"] 
+label_dict = {"test1.wav": 0, "test2.wav": 1} 
 
-for epoch in range(5):
-    loss_sum = 0
+for epoch in range(2):
     for fname in train_list:
-        wav_path = os.path.join("data", fname)
-        signal, _ = sf.read(wav_path)
-        signal = signal / np.max(np.abs(signal))
+        signal, sr = sf.read("data/" + fname)
         if signal.ndim > 1:
-            signal = signal[:, 0]  # mono
+            signal = signal[:, 0]
+        signal = signal[:16000]
+        signal = signal / np.max(np.abs(signal))
 
-        if len(signal) < 100:
-            continue  # skip too short
-
-        x = torch.tensor(signal[:100]).float().unsqueeze(0)
+        x = torch.tensor(signal).float().unsqueeze(0)
         y = torch.tensor([label_dict[fname]]).long()
 
         out = model(x)
@@ -34,8 +28,4 @@ for epoch in range(5):
         loss.backward()
         optimizer.step()
 
-        loss_sum += loss.item()
-
-    print(f"Epoch {epoch}, Loss: {loss_sum / len(train_list):.4f}")
-
-torch.save(model.state_dict(), "model.pth")
+    print(f"epoch {epoch}, loss: {loss.item():.4f}")
